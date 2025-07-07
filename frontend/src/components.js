@@ -145,6 +145,70 @@ export const Header = () => {
 
 // Hero Section Component
 export const HeroSection = () => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [audioError, setAudioError] = useState(false);
+  const [audioRef, setAudioRef] = useState(null);
+  
+  const MIXX_FM_STREAM = "https://mixxfm.ice.infomaniak.ch/mixxfm-192.mp3";
+
+  useEffect(() => {
+    const audio = new Audio(MIXX_FM_STREAM);
+    audio.preload = "none";
+    audio.volume = 0.7;
+    setAudioRef(audio);
+
+    audio.addEventListener('loadstart', () => {
+      setIsLoading(true);
+      setAudioError(false);
+    });
+
+    audio.addEventListener('canplay', () => {
+      setIsLoading(false);
+      setAudioError(false);
+    });
+
+    audio.addEventListener('error', (e) => {
+      setIsLoading(false);
+      setAudioError(true);
+      setIsPlaying(false);
+      console.error('Audio error:', e);
+    });
+
+    audio.addEventListener('ended', () => {
+      setIsPlaying(false);
+    });
+
+    return () => {
+      audio.pause();
+      audio.removeEventListener('loadstart', () => {});
+      audio.removeEventListener('canplay', () => {});
+      audio.removeEventListener('error', () => {});
+      audio.removeEventListener('ended', () => {});
+    };
+  }, []);
+
+  const togglePlayPause = async () => {
+    if (!audioRef) return;
+
+    try {
+      if (isPlaying) {
+        audioRef.pause();
+        setIsPlaying(false);
+      } else {
+        setIsLoading(true);
+        await audioRef.play();
+        setIsPlaying(true);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setAudioError(true);
+      setIsLoading(false);
+      setIsPlaying(false);
+    }
+  };
+
   return (
     <section className="bg-gradient-to-br from-purple-900 via-black to-gray-900 py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -163,6 +227,10 @@ export const HeroSection = () => {
             <div className="flex items-center space-x-4">
               <span className="text-gray-300">ON AIR</span>
               <span className="text-purple-400 font-bold text-2xl">24/7</span>
+              <div className={`w-3 h-3 rounded-full ${
+                isPlaying ? 'bg-purple-500 animate-pulse' : 
+                audioError ? 'bg-red-500' : 'bg-gray-500'
+              }`}></div>
             </div>
             
             <div className="space-y-3">
@@ -170,16 +238,51 @@ export const HeroSection = () => {
                 <h3 className="font-bold text-xl">Now Playing</h3>
                 <p className="text-purple-300">RAVE BROTHERS & DYLAN KERR</p>
                 <p className="text-gray-400">YOU GOT TO GET DOWN</p>
+                {audioError && (
+                  <p className="text-red-400 text-sm">⚠️ Erreur de connexion au flux</p>
+                )}
+                {isLoading && (
+                  <p className="text-yellow-400 text-sm">🔄 Connexion en cours...</p>
+                )}
+                {isPlaying && (
+                  <p className="text-green-400 text-sm">🎵 Diffusion en direct</p>
+                )}
               </div>
             </div>
             
             <div className="flex space-x-4">
-              <button className="bg-purple-600 text-white px-6 py-3 rounded-full font-medium hover:bg-purple-700 transition-colors">
-                🎧 Écouter Live
+              <button 
+                onClick={togglePlayPause}
+                disabled={isLoading}
+                className="bg-purple-600 text-white px-8 py-4 rounded-full font-medium hover:bg-purple-700 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed glow-purple"
+              >
+                {isLoading ? (
+                  <span className="flex items-center space-x-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Connexion...</span>
+                  </span>
+                ) : isPlaying ? (
+                  <span>⏸️ Arrêter Live</span>
+                ) : (
+                  <span>🎧 Écouter Live</span>
+                )}
               </button>
               <button className="border border-purple-600 text-purple-400 px-6 py-3 rounded-full font-medium hover:bg-purple-600 hover:text-white transition-colors">
                 📻 DAB+ 11B
               </button>
+              {audioError && (
+                <button 
+                  onClick={() => {
+                    setAudioError(false);
+                    if (audioRef) {
+                      audioRef.load();
+                    }
+                  }}
+                  className="bg-red-600 text-white px-4 py-3 rounded-full text-sm hover:bg-red-700 transition-colors"
+                >
+                  🔄 Réessayer
+                </button>
+              )}
             </div>
           </div>
           
@@ -197,6 +300,7 @@ export const HeroSection = () => {
                   <div>
                     <span className="text-sm font-medium text-purple-300">MIXX FM CHARLEROI</span>
                     <div className="text-xs text-gray-400">Deep House • Tech-House • Techno</div>
+                    <div className="text-xs text-purple-400 mt-1">MP3 Stream • 192 kbps</div>
                   </div>
                   <div className="flex space-x-1">
                     <div className="w-1 h-6 bg-purple-500 rounded animate-pulse"></div>
