@@ -3,6 +3,68 @@ import React, { useState, useEffect } from 'react';
 // Header Component
 export const Header = () => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [audioError, setAudioError] = useState(false);
+  const [audioRef, setAudioRef] = useState(null);
+  
+  const MIXX_FM_STREAM = "https://mixxfm.ice.infomaniak.ch/mixxfm-192.mp3";
+
+  useEffect(() => {
+    const audio = new Audio(MIXX_FM_STREAM);
+    audio.preload = "none";
+    audio.volume = 0.7;
+    setAudioRef(audio);
+
+    audio.addEventListener('loadstart', () => {
+      setIsLoading(true);
+      setAudioError(false);
+    });
+
+    audio.addEventListener('canplay', () => {
+      setIsLoading(false);
+      setAudioError(false);
+    });
+
+    audio.addEventListener('error', (e) => {
+      setIsLoading(false);
+      setAudioError(true);
+      setIsPlaying(false);
+      console.error('Audio error:', e);
+    });
+
+    audio.addEventListener('ended', () => {
+      setIsPlaying(false);
+    });
+
+    return () => {
+      audio.pause();
+      audio.removeEventListener('loadstart', () => {});
+      audio.removeEventListener('canplay', () => {});
+      audio.removeEventListener('error', () => {});
+      audio.removeEventListener('ended', () => {});
+    };
+  }, []);
+
+  const togglePlayPause = async () => {
+    if (!audioRef) return;
+
+    try {
+      if (isPlaying) {
+        audioRef.pause();
+        setIsPlaying(false);
+      } else {
+        setIsLoading(true);
+        await audioRef.play();
+        setIsPlaying(true);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setAudioError(true);
+      setIsLoading(false);
+      setIsPlaying(false);
+    }
+  };
   
   return (
     <header className="bg-black shadow-lg">
@@ -15,36 +77,65 @@ export const Header = () => {
               <span className="text-white ml-1">FM</span>
             </div>
             <div className="ml-3 text-sm text-gray-300">
-              <div>107.6 FM • DAB+ 11B</div>
+              <div className="frequency-display">107.6 FM • DAB+ 11B</div>
               <div className="text-purple-400">Charleroi</div>
             </div>
           </div>
           
           {/* Navigation */}
           <nav className="hidden md:flex space-x-8">
-            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium">ACCUEIL</a>
-            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium">PROGRAMMATION</a>
-            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium">DJS</a>
-            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium">MIXES</a>
-            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium">ÉVÉNEMENTS</a>
-            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium">CONTACT</a>
+            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium transition-colors">ACCUEIL</a>
+            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium transition-colors">PROGRAMMATION</a>
+            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium transition-colors">DJS</a>
+            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium transition-colors">MIXES</a>
+            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium transition-colors">ÉVÉNEMENTS</a>
+            <a href="#" className="text-gray-300 hover:text-purple-400 font-medium transition-colors">CONTACT</a>
           </nav>
           
           {/* Live Radio and Play Button */}
           <div className="flex items-center space-x-4">
             <div className="text-right">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-gray-300">Live • MIXX FM</span>
+                <div className={`w-2 h-2 rounded-full ${
+                  isPlaying ? 'bg-purple-500 animate-pulse' : 
+                  audioError ? 'bg-red-500' : 'bg-gray-500'
+                }`}></div>
+                <span className="text-sm text-gray-300">
+                  {isPlaying ? "🔴 LIVE" : "📻 MIXX FM"}
+                </span>
               </div>
               <div className="text-xs text-purple-400">Culture Électro</div>
+              {audioError && (
+                <div className="text-xs text-red-400">Connexion échouée</div>
+              )}
             </div>
             <button 
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="bg-purple-600 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-purple-700 transition-colors shadow-lg"
+              onClick={togglePlayPause}
+              disabled={isLoading}
+              className="bg-purple-600 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-purple-700 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed glow-purple"
+              title={isPlaying ? "Arrêter MIXX FM" : "Écouter MIXX FM en direct"}
             >
-              {isPlaying ? '⏸️' : '▶️'}
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : isPlaying ? (
+                <span className="text-lg">⏸️</span>
+              ) : (
+                <span className="text-lg">▶️</span>
+              )}
             </button>
+            {audioError && (
+              <button 
+                onClick={() => {
+                  setAudioError(false);
+                  if (audioRef) {
+                    audioRef.load();
+                  }
+                }}
+                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 transition-colors"
+              >
+                Réessayer
+              </button>
+            )}
           </div>
         </div>
       </div>
