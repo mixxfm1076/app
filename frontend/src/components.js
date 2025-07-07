@@ -342,11 +342,82 @@ export const DJSection = () => {
 // Audio Player Component
 export const AudioPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [volume, setVolume] = useState(0.7);
+  const [audioError, setAudioError] = useState(false);
+  const [audioRef, setAudioRef] = useState(null);
+  
+  const MIXX_FM_STREAM = "https://mixxfm.ice.infomaniak.ch/mixxfm-192.mp3";
+  
   const [currentTrack, setCurrentTrack] = useState({
-    title: "You Got To Get Down",
-    artist: "Rave Brothers & Dylan Kerr",
+    title: "MIXX FM Live Stream",
+    artist: "Culture Électro • Charleroi",
     cover: "https://images.pexels.com/photos/6547593/pexels-photo-6547593.jpeg"
   });
+
+  useEffect(() => {
+    const audio = new Audio(MIXX_FM_STREAM);
+    audio.preload = "none";
+    audio.volume = volume;
+    setAudioRef(audio);
+
+    audio.addEventListener('loadstart', () => {
+      setIsLoading(true);
+      setAudioError(false);
+    });
+
+    audio.addEventListener('canplay', () => {
+      setIsLoading(false);
+      setAudioError(false);
+    });
+
+    audio.addEventListener('error', (e) => {
+      setIsLoading(false);
+      setAudioError(true);
+      setIsPlaying(false);
+      console.error('Audio error:', e);
+    });
+
+    audio.addEventListener('ended', () => {
+      setIsPlaying(false);
+    });
+
+    return () => {
+      audio.pause();
+      audio.removeEventListener('loadstart', () => {});
+      audio.removeEventListener('canplay', () => {});
+      audio.removeEventListener('error', () => {});
+      audio.removeEventListener('ended', () => {});
+    };
+  }, [volume]);
+
+  const togglePlayPause = async () => {
+    if (!audioRef) return;
+
+    try {
+      if (isPlaying) {
+        audioRef.pause();
+        setIsPlaying(false);
+      } else {
+        setIsLoading(true);
+        await audioRef.play();
+        setIsPlaying(true);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setAudioError(true);
+      setIsLoading(false);
+      setIsPlaying(false);
+    }
+  };
+
+  const handleVolumeChange = (newVolume) => {
+    setVolume(newVolume);
+    if (audioRef) {
+      audioRef.volume = newVolume;
+    }
+  };
   
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-black text-white p-4 shadow-2xl border-t border-purple-800">
@@ -360,39 +431,84 @@ export const AudioPlayer = () => {
           <div>
             <h4 className="font-medium text-white">{currentTrack.title}</h4>
             <p className="text-sm text-gray-400">{currentTrack.artist}</p>
-            <div className="text-xs text-purple-400">Tech-House</div>
+            <div className="text-xs text-purple-400">
+              {audioError ? "❌ Connexion échouée" : 
+               isLoading ? "🔄 Connexion..." : 
+               isPlaying ? "🎵 En direct" : "📻 Prêt à diffuser"}
+            </div>
           </div>
         </div>
         
         <div className="flex items-center space-x-4">
-          <button className="text-gray-300 hover:text-purple-400 transition-colors">
-            ⏮️
-          </button>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-400">🔊</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={volume}
+              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+              className="w-16 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #7c3aed 0%, #7c3aed ${volume * 100}%, #374151 ${volume * 100}%, #374151 100%)`
+              }}
+            />
+          </div>
+          
           <button 
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="bg-purple-600 text-white w-14 h-14 rounded-full flex items-center justify-center hover:bg-purple-700 transition-colors shadow-lg"
+            onClick={togglePlayPause}
+            disabled={isLoading}
+            className="bg-purple-600 text-white w-14 h-14 rounded-full flex items-center justify-center hover:bg-purple-700 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isPlaying ? '⏸️' : '▶️'}
+            {isLoading ? (
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : isPlaying ? (
+              <span className="text-xl">⏸️</span>
+            ) : (
+              <span className="text-xl">▶️</span>
+            )}
           </button>
-          <button className="text-gray-300 hover:text-purple-400 transition-colors">
-            ⏭️
-          </button>
+          
+          {audioError && (
+            <button 
+              onClick={() => {
+                setAudioError(false);
+                if (audioRef) {
+                  audioRef.load();
+                }
+              }}
+              className="text-xs bg-red-600 text-white px-3 py-1 rounded-full hover:bg-red-700 transition-colors"
+            >
+              Réessayer
+            </button>
+          )}
         </div>
         
         <div className="flex items-center space-x-4">
           <div className="text-right">
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-gray-300">Live • MIXX FM</span>
+              <div className={`w-2 h-2 rounded-full ${
+                isPlaying ? 'bg-purple-500 animate-pulse' : 
+                audioError ? 'bg-red-500' : 'bg-gray-500'
+              }`}></div>
+              <span className="text-sm text-gray-300">
+                {isPlaying ? "🔴 LIVE" : "📻 MIXX FM"}
+              </span>
             </div>
             <div className="text-xs text-purple-400">107.6 FM • DAB+ 11B</div>
+            <div className="text-xs text-gray-500">MP3 • 192 kbps</div>
           </div>
-          <div className="flex space-x-1">
-            <div className="w-1 h-6 bg-purple-500 rounded animate-pulse"></div>
-            <div className="w-1 h-8 bg-purple-400 rounded animate-pulse" style={{animationDelay: '0.1s'}}></div>
-            <div className="w-1 h-4 bg-purple-500 rounded animate-pulse" style={{animationDelay: '0.2s'}}></div>
-            <div className="w-1 h-7 bg-purple-400 rounded animate-pulse" style={{animationDelay: '0.3s'}}></div>
-          </div>
+          
+          {isPlaying && (
+            <div className="flex space-x-1">
+              <div className="w-1 h-6 bg-purple-500 rounded animate-pulse"></div>
+              <div className="w-1 h-8 bg-purple-400 rounded animate-pulse" style={{animationDelay: '0.1s'}}></div>
+              <div className="w-1 h-4 bg-purple-500 rounded animate-pulse" style={{animationDelay: '0.2s'}}></div>
+              <div className="w-1 h-7 bg-purple-400 rounded animate-pulse" style={{animationDelay: '0.3s'}}></div>
+              <div className="w-1 h-5 bg-purple-500 rounded animate-pulse" style={{animationDelay: '0.4s'}}></div>
+            </div>
+          )}
         </div>
       </div>
     </div>
